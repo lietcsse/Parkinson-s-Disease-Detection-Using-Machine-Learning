@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkinson's Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-image: url("{{ url_for('static', filename='bg.jpg') }}");  /* Updated path */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #fff;
+        }
+
+        .image-section {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .head {
+            margin-top: 20px;
+            font-size: 2.5em;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .image-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .image-container img {
+            width: 400px;
+            height: 400px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .form-container {
+            flex: 1;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-container h2 {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .form-row {
+            margin-bottom: 20px;
+        }
+
+        .form-row input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background: #333;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        .form-row input:focus {
+            outline: none;
+            border-color: #007BFF;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        #detectButton {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .navigation button:hover {
+            background-color: #0056b3;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+
+        .success {
+            background-color: rgba(40, 167, 69, 0.7);
+        }
+
+        .error {
+            background-color: rgba(220, 53, 69, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="image-section">
+      <h1 class="head">Parkinson's Detection</h1>
+      <div class="container">
+          <div class="image-container">
+            <img src="{{ url_for('static', filename='parkk.png') }}" alt="Parkinson's Symptoms">
+          </div>
+          <div class="form-container">
+              <h2>Patient Data Input</h2>
+              <form id="inputForm">
+                  <!-- Form fields will be dynamically added here -->
+              </form>
+              <div id="result"></div>
+              <button type="button" id="detectButton" onclick="detect()">Detect</button>
+          </div>
+      </div>
+  </div>
+  
+  <script>
+    const columns = [
+        { name: "Name", type: "text" },
+        { name: "age", type: "number" },
+        { name: "Eye blinking", type: "number" },
+        { name: "handshaking", type: "number" },
+        { name: "MDVP:Fo(Hz)", type: "number" }
+       
+    ];
+
+    const form = document.getElementById("inputForm");
+    const resultDiv = document.getElementById("result");
+
+    function displayForm() {
+        form.innerHTML = "";
+        columns.forEach(col => {
+            const row = document.createElement("div");
+            row.className = "form-row";
+
+            const input = document.createElement("input");
+            input.type = col.type;
+            input.step = "0.001";
+            input.name = col.name;
+            input.placeholder = col.name;
+            input.required = true;
+
+            row.appendChild(input);
+            form.appendChild(row);
+        });
+
+        // Add the Detect button
+      
+    }
+
+    function showResult(message, isError = false) {
+        console.log("Displaying Result:", message);
+        resultDiv.innerHTML = `<strong>${message}</strong>`;
+        resultDiv.style.display = "block";
+        resultDiv.className = isError ? "error" : "success";
+    }
+
+    function detect() {
+        const formData = {};
+        const inputs = document.querySelectorAll("#inputForm input");
+        let isValid = true;
+
+        inputs.forEach(input => {
+            if (!input.value) {
+                isValid = false;
+                input.style.borderColor = "red";
+            } else {
+                input.style.borderColor = "#444";
+                formData[input.name] = input.type === "number" ? parseFloat(input.value) : input.value;
+            }
+        });
+
+        if (!isValid) {
+            showResult("Please fill in all fields", true);
+            return;
+        }
+
+        console.log("Form Data Being Sent:");
+        console.table(formData);
+
+        const detectButton = document.getElementById("detectButton");
+        detectButton.disabled = true;
+        detectButton.textContent = "Processing...";
+
+        fetch('http://127.0.0.1:5000/api/detect', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            console.log("Raw Response:", response);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Response JSON:", data);
+
+            if (data.success) {
+                let resultMessage = data.detection_result;
+
+                // Check if Parkinson’s is detected
+                if (resultMessage.toLowerCase().includes("detected")) {
+                    resultDiv.classList.add("error");
+                    resultDiv.classList.remove("success");
+                } else {
+                    resultDiv.classList.add("success");
+                    resultDiv.classList.remove("error");
+                }
+
+                showResult(resultMessage);
+            } else {
+                showResult(data.error || "An error occurred", true);
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            showResult("An error occurred. Please try again later.", true);
+        })
+        .finally(() => {
+            detectButton.disabled = false;
+            detectButton.textContent = "Detect";
+        });
+    }
+
+    displayForm();
+</script>
+  </body>
+  
+</html>
